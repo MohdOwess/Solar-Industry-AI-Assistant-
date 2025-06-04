@@ -1,0 +1,111 @@
+import base64
+import requests
+from IPython.display import Image, display
+from PIL import Image as PILImage
+import io
+
+# Upload image
+from tkinter.filedialog import askopenfilename
+import tkinter as tk
+
+tk.Tk().withdraw()  # Hide tkinter window
+file_path = askopenfilename(title="Select Rooftop Image")
+
+# Display the image
+display(Image(filename=file_path))
+
+# Read and encode image
+with open(file_path, "rb") as img_file:
+    image_bytes = img_file.read()
+    image_base64 = base64.b64encode(image_bytes).decode()
+
+# AI prompt and request
+prompt = """
+Analyze this rooftop image for solar panel installation:
+- Roof usable area (sqm)
+- Orientation and shading notes
+- Panel count recommendation
+- Suitability score (0-100)
+- Other observations
+Return response in JSON format.
+"""
+
+headers = {
+    "Authorization": "Bearer YOUR_OPENAI_API_KEY",  # ← Replace with your key
+    "Content-Type": "application/json"
+}
+
+payload = {
+    "model": "gpt-4-vision-preview",
+    "messages": [
+        {"role": "user", "content": [
+            {"type": "text", "text": prompt},
+            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}}
+        ]}
+    ],
+    "max_tokens": 100
+}
+
+try:
+    response = requests.post(
+        "https://api.openai.com/v1/chat/completions",
+        headers=headers,
+        json=payload,
+        timeout=60  # <-- Add a timeout (in seconds)
+    )
+    response.raise_for_status()
+    result = response.json()
+    ai_analysis = eval(result["choices"][0]["message"]["content"])
+    print("✅ Rooftop Analysis Result:")
+    print(ai_analysis)
+
+except requests.exceptions.Timeout:
+    print("❌ Request timed out. Try a smaller image or check your internet connection.")
+
+except requests.exceptions.RequestException as e:
+    print(f"❌ Error occurred: {e}")
+
+
+
+
+def estimate_roi(ai_analysis):
+    usable_area = ai_analysis.get("roof_usable_area_sqm", 50)
+    panel_efficiency = 0.18
+    panel_area = 1.6
+    panel_cost = 300
+    sunlight_hours = 4.5
+    electricity_cost = 0.12
+
+    num_panels = int(usable_area / panel_area)
+    annual_output_kwh = num_panels * panel_efficiency * panel_area * sunlight_hours * 365
+    annual_savings = annual_output_kwh * electricity_cost
+    installation_cost = num_panels * panel_cost
+    payback_years = installation_cost / annual_savings
+
+    return {
+        "Recommended Panels": num_panels,
+        "Estimated Cost (USD)": round(installation_cost),
+        "Annual Energy Output (kWh)": round(annual_output_kwh),
+        "Estimated Annual Savings (USD)": round(annual_savings),
+        "Estimated Payback Period (Years)": round(payback_years, 1)
+    }
+
+# ✅ Define this before calling the function
+ai_analysis = {
+    "roof_usable_area_sqm": 64  # Example: 64 sqm usable roof area
+}
+
+roi_result = estimate_roi(ai_analysis)
+
+print("\n💰 ROI and Installation Estimate:")
+print(roi_result)
+
+
+
+
+import json
+
+with open("analysis_result.json", "w") as f:
+    json.dump({"analysis": ai_analysis, "roi": roi_result}, f, indent=4)
+
+print("✅ Results saved to analysis_result.json")
