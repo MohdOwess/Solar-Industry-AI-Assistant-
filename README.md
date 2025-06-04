@@ -34,7 +34,11 @@ An AI-powered rooftop analysis tool that uses satellite imagery to assess solar 
 ## 🔧 Setup Instructions
 
 ### 1. Clone this repository
+https://github.com/MohdOwess/Solar-Industry-AI-Assistant-.git
 
+###Replace this line in the code:
+"Authorization": "Bearer YOUR_OPENAI_API_KEY"
+----with your real key 
 
 
 
